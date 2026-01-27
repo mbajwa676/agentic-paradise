@@ -10,3 +10,12 @@ glove.840B.300d.txt
 out
 pages
 node_modules
+
+# Godot-specific
+godot-client/.godot/
+godot-client/.import/
+godot-client/export/
+godot-client/export_presets.cfg
+godot-client/*.translation
+godot-client/.mono/
+godot-client/data_*/
