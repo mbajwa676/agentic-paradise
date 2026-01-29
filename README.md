@@ -4,7 +4,7 @@
 Based on: [nmater1/smallville](https://github.com/nmater1/smallville) (Apache 2.0)
 
 ## Features
-- Local Ollama (Mistral) or OpenAI backend
+- Local Ollama (gemma3: 4b) or OpenAI backend
 - Custom memory-driven prompts
 - Real-time `/state` sync with Godot
 - 30 FPS reactive NPC behavior
