@@ -74,13 +74,12 @@ public class ChatGPT implements LLM {
 
 	try {
 	    // Create the request body
-	    JsonNode requestBody = mapper.createObjectNode().put("model", "text-embedding-ada-002").put("input", text);
+	    JsonNode requestBody = mapper.createObjectNode().put("model", "nomic-embed-text").put("input", text);
 
 	    Request request = new Request.Builder()
-		.url("https://api.openai.com/v1/embeddings")
-		.post(RequestBody
-		    .create(mapper.writeValueAsString(requestBody), okhttp3.MediaType.parse("application/json")))
-		.addHeader("Authorization", "Bearer " + Settings.getApiKey())
+		.url("http://localhost:11434/v1/embeddings")
+		.post(RequestBody.create(mapper.writeValueAsString(requestBody), okhttp3.MediaType.parse("application/json")))
+		.addHeader("Authorization", "Bearer ollama")
 		.build();
 
 	    Response response = client.newCall(request).execute();
@@ -101,7 +100,7 @@ public class ChatGPT implements LLM {
 	OkHttpClient client = new OkHttpClient.Builder()
 	    .connectTimeout(10, TimeUnit.SECONDS)
 	    .writeTimeout(3, TimeUnit.MINUTES)
-	    .readTimeout(3, TimeUnit.MINUTES)
+	    .readTimeout(5, TimeUnit.MINUTES)
 	    .build();
 
 	String json = """
@@ -132,16 +131,16 @@ public class ChatGPT implements LLM {
 
 	json = json.replace("%messages", MAPPER.writeValueAsString(prompt.build()));
 	json = json.replace("%temperature", String.valueOf(temperature));
-	json = json.replace("%model", SmallvilleConfig.getConfig().getModel());
+	json = json.replace("%model", "gemma3:4b");
 
 	LOG.debug("[Chat Request Original]" + json);
 	LOG.debug("[Chat Request]" + prompt.getContent());
 
-	RequestBody body = RequestBody.create(json.getBytes());
+	RequestBody body = RequestBody.create(json.getBytes(), okhttp3.MediaType.parse("application/json"));
 	Request request = new Request.Builder()
-	    .url(SmallvilleConfig.getConfig().getApiPath())
+	    .url("http://localhost:11434/v1/chat/completions")
 	    .addHeader("Content-Type", "application/json")
-	    .addHeader("Authorization", "Bearer " + Settings.getApiKey())
+	    .addHeader("Authorization", "Bearer ollama")
 	    .post(body)
 	    .build();
 
@@ -149,16 +148,14 @@ public class ChatGPT implements LLM {
 
 	Response response = client.newCall(request).execute();
 	String responseBody = response.body().string();
+	LOG.info("Raw LLM Response: " + responseBody);
 
 	ObjectMapper objectMapper = new ObjectMapper();
 	JsonNode node = objectMapper.readTree(responseBody);
-
 	if (node.get("choices") == null) {
-	    LOG.debug(node.toPrettyString());
-	    throw new SmallvilleException(
-		    "Invalid api token, rate limit reached, or the LLM is overloaded with requests.");
+		LOG.error("No 'choices' in response: " + node.toString());
+		throw new SmallvilleException("Invalid response structure.");
 	}
-
 	
 	result = node.get("choices").get(0).get("message").get("content").asText();
 

@@ -45,17 +45,20 @@ func _ready():
 func _initialize_new_world():
 	"""Create initial agents and locations"""
 	# Define starting locations
-	var starting_locations = [
-		"coffee_shop",
-		"town_square", 
-		"market",
-		"tavern",
-		"home"
-	]
+	var locations_config = {
+		"market": ["produce_stand", "vendor_stalls", "entrance"],
+		"tavern": ["bar", "tables", "corner_booth"],
+		"coffee_shop": ["counter", "outdoor_seating", "reading_nook"],
+		"town_square": ["fountain", "benches"],
+		"home": ["kitchen", "bedroom", "living_room"]
+	}
 	
-	# Create locations first
-	for loc in starting_locations:
-		_create_location(loc)
+	# Create locations
+	for loc_name in locations_config.keys():
+		# Create sub-locations
+		for sub_loc in locations_config[loc_name]:
+			var full_name = loc_name + ":" + sub_loc
+			_create_location(full_name)
 	
 	# Wait a moment for locations to be created
 	await get_tree().create_timer(0.5).timeout
@@ -64,19 +67,19 @@ func _initialize_new_world():
 	var starting_agents = [
 		{
 			"name": "Klaus",
-			"location": "coffee_shop",
+			"location": "coffee_shop:counter",
 			"memories": ["I love a good cup of coffee in the morning."],
 			"activity": "Entering the coffee shop."
 		},
 		{
 			"name": "Maria",
-			"location": "market",
+			"location": "market:entrance",
 			"memories": ["I need to buy fresh vegetables today."],
 			"activity": "Looking at the produce."
 		},
 		{
 			"name": "John",
-			"location": "tavern",
+			"location": "tavern:bar",
 			"memories": ["The tavern is a good place to hear local gossip."],
 			"activity": "Sitting at the bar."
 		}
@@ -85,6 +88,7 @@ func _initialize_new_world():
 	for agent_data in starting_agents:
 		_create_agent(agent_data)
 
+# LOCATION FUNCTIONS
 func _create_location(location_name):
 	"""POST request to create a location"""
 	var http = HTTPRequest.new()
@@ -92,7 +96,7 @@ func _create_location(location_name):
 	http.request_completed.connect(_on_location_created.bind(http))  # Pass http as parameter
 	
 	var headers = ["Content-Type: application/json"]
-	var body = JSON.stringify({"name": location_name})
+	var body = JSON.stringify({"name":location_name})
 	
 	var error = http.request(
 		backend_url + "/locations",
@@ -120,41 +124,6 @@ func _on_location_created(result, response_code, headers, body, http):
 	# Now it's safe to free
 	if is_instance_valid(http):
 		http.queue_free()
-
-func _create_agent(agent_data):
-	"""POST request to create an agent"""
-	var http = HTTPRequest.new()
-	add_child(http)
-	http.request_completed.connect(_on_agent_created.bind(http))  # Pass http as parameter
-	
-	var headers = ["Content-Type: application/json"]
-	var body = JSON.stringify(agent_data)
-	
-	var error = http.request(
-		backend_url + "/agents",
-		headers,
-		HTTPClient.METHOD_POST,
-		body
-	)
-	
-	if error != OK:
-		push_error("Failed to create agent: " + agent_data.name)
-		http.queue_free()  # Only free if request failed immediately
-
-func _on_agent_created(result, response_code, headers, body, http):
-	"""Handle agent creation response"""
-	if response_code == 200 or response_code == 201:
-		var json = JSON.new()
-		json.parse(body.get_string_from_utf8())
-		var agent_data = json.data
-		print("Agent created: ", agent_data.get("name", "unknown"))
-	else:
-		push_error("Agent creation failed with code: " + str(response_code))
-	
-	# Now it's safe to free
-	if is_instance_valid(http):
-		http.queue_free()
-
 func _fetch_locations():
 	"""GET request to fetch all locations"""
 	var http = HTTPRequest.new()
@@ -209,6 +178,43 @@ func _on_locations_received(result, response_code, headers, body):
 		print("Loaded %d locations: %s" % [locations.size(), locations.keys()])
 	else:
 		push_error("Failed to fetch locations, code: " + str(response_code))
+
+# AGENT FUNCTIONS
+func _create_agent(agent_data):
+	"""POST request to create an agent"""
+	var http = HTTPRequest.new()
+	add_child(http)
+	http.request_completed.connect(_on_agent_created.bind(http))  # Pass http as parameter
+	
+	var headers = ["Content-Type: application/json"]
+	var body = JSON.stringify(agent_data)
+	
+	var error = http.request(
+		backend_url + "/agents",
+		headers,
+		HTTPClient.METHOD_POST,
+		body
+	)
+	
+	if error != OK:
+		push_error("Failed to create agent: " + agent_data.name)
+		http.queue_free()  # Only free if request failed immediately
+
+func _on_agent_created(result, response_code, headers, body, http):
+	"""Handle agent creation response"""
+	if response_code == 200 or response_code == 201:
+		var json = JSON.new()
+		json.parse(body.get_string_from_utf8())
+		var agent_data = json.data
+		print("Agent created: ", agent_data.get("name", "unknown"))
+	else:
+		push_error("Agent creation failed with code: " + str(response_code))
+	
+	# Now it's safe to free
+	if is_instance_valid(http):
+		http.queue_free()
+
+
 
 func _poll_backend():
 	"""Poll the backend /state endpoint"""
